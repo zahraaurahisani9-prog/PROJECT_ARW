@@ -130,6 +130,27 @@ def select_arima(series, d):
                 continue
     return best_order
 
+def forecast_exists(timeframe, forecast_ts):
+    table = f"{PROJECT_ID}.{FORECAST_DATASET}.live_forecast_arima_{timeframe}"
+    query = f"""
+    SELECT 1
+    FROM `{table}`
+    WHERE forecast_timestamp = @forecast_ts
+    LIMIT 1
+    """
+    job_config = bigquery.QueryJobConfig(
+        query_parameters=[
+            bigquery.ScalarQueryParameter(
+                "forecast_ts", "TIMESTAMP", forecast_ts
+            )
+        ]
+    )
+    try:
+        df = client.query(query, job_config=job_config).to_dataframe()
+        return not df.empty
+    except Exception:
+        return False
+
 
 # ============================================================
 # MAIN LOOP
@@ -151,10 +172,13 @@ for timeframe, cfg in INTERVAL_CONFIG.items():
     source_last_ts = df.iloc[-1]["timestamp"]
 
     # polling guard
-    last_ts = last_forecast_train_ts(timeframe)
-    if last_ts is not None and source_last_ts <= last_ts:
-        print("[SKIP] No new data")
+    last_data_ts = timestamps.iloc[-1]
+    forecast_ts = last_data_ts + cfg["freq"]
+
+    if forecast_exists(timeframe, forecast_ts):
+        print("[SKIP] Forecast already exists for", forecast_ts)
         continue
+
 
     series = df["close"].reset_index(drop=True)
     timestamps = df["timestamp"].reset_index(drop=True)
