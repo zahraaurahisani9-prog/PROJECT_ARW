@@ -172,6 +172,9 @@ for timeframe, cfg in INTERVAL_CONFIG.items():
     source_last_ts = df.iloc[-1]["timestamp"]
 
     # polling guard
+    series = df["close"].reset_index(drop=True)
+    timestamps = df["timestamp"].reset_index(drop=True)
+    
     last_data_ts = timestamps.iloc[-1]
     forecast_ts = last_data_ts + cfg["freq"]
 
@@ -179,9 +182,6 @@ for timeframe, cfg in INTERVAL_CONFIG.items():
         print("[SKIP] Forecast already exists for", forecast_ts)
         continue
 
-
-    series = df["close"].reset_index(drop=True)
-    timestamps = df["timestamp"].reset_index(drop=True)
 
     # ========================================================
     # TRAIN-TEST SPLIT (TIME BASED)
